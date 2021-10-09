@@ -13,7 +13,7 @@ Thank you zwclose on Rohitab for your [fantastic error handling](http://www.rohi
 
 Helpful examples have also been done by [hasherzade](https://github.com/hasherezade) and [Zer0Mem0ry]().
 
-# Windows methods used are:
+# Methods:
 
   - ZeroMemory
   - CloseHandle
