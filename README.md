@@ -11,7 +11,7 @@ Here is a [helpful article](https://medium.com/@jain.sm/process-hollowing-930b30
 
 Thank you zwclose on Rohitab for your [fantastic error handling](http://www.rohitab.com/discuss/topic/40262-dynamic-forking-process-hollowing/) bits. I borrowed a lot of it.
 
-Helpful examples have also been done by [hasherzade](https://github.com/hasherezade) and [Zer0Mem0ry]().
+Helpful examples have also been done by [hasherzade](https://github.com/hasherezade) and [Zer0Mem0ry](https://github.com/Zer0Mem0ry/).
 
 # Methods:
 
@@ -45,5 +45,6 @@ Helpful examples have also been done by [hasherzade](https://github.com/hasherez
 - http://www.rohitab.com/discuss/topic/40262-dynamic-forking-process-hollowing/.
 - https://github.com/Zer0Mem0ry/RunPE/blob/master/RunPE.cpp
 - https://github.com/hasherezade/
+- https://github.com/Zer0Mem0ry/
 - https://www.autosectools.com/process-hollowing.pdf
 - https://github.com/hasherezade/pe_to_shellcode
