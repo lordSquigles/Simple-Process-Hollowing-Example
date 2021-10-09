@@ -32,4 +32,5 @@ Windows methods used are:
  Notes: 
  
 1. Zer0Mem0ry's example differs from mine in that the process hollowing program injects ITSELF with the malicious memory. In this example also, the malicious program is never stored on or read off the disk. Instead, its raw bytes are pasted into the code of the injector program before compilation. This has the benefit of avoiding signature detection of the malicious file. Combined with obfuscation and/or packing, the malicious data may never see itself on the disk in a readable format and offer the best antivirus evasion. If having everything in the same file but still injecting ANOTHER process is important to you, feel free to combine these methods and replace the components of mine that read the data from the malicious file on disk into memory with theirs.
+
 2. With the hope of proving beneficial to others as well, I started this project primarily to benefit my learning of malware evasion techniques. If anything is wrong, please let me know!
