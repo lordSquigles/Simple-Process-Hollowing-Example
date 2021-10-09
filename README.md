@@ -9,8 +9,6 @@ Thank you zwclose on Rohitab for your fantastic error handling bits! I borrowed 
 
 Helpful examples have also been done by hasherzade (https://github.com/hasherezade/) and Zer0Mem0ry (https://github.com/Zer0Mem0ry/).
 
-Zer0Mem0ry's example differs from mine in that the process hollowing program injects ITSELF with the malicious memory. In this example also, the malicious program is never stored on or read off the disk. Instead, its raw bytes are pasted into the code of the injector program before compilation. This has the benefit of avoiding signature detection of the malicious file. Combined with obfuscation and/or packing, the malicious data may never see itself on the disk in a readable format and offer the best antivirus evasion. If having everything in the same file but still injecting ANOTHER process is important to you, feel free to combine these methods and replace the components of mine that read the data from the malicious file on disk into memory with theirs.
-
 Windows methods used are:
 
   - ZeroMemory
@@ -30,3 +28,7 @@ Windows methods used are:
   - NtUnmapViewOfSection
   
   It is worth familiarizing oneself with all of these methods for the best understanding. Documentation for each of them can be found on https://docs.microsoft.com, except for NtUnmapViewOfSection, which can be found at http://undocumented.ntinternals.net. I have also included an ntdll.h file which will allow the use of the NT "user mode," methods.
+  
+ Notes: 
+ 
+1. Zer0Mem0ry's example differs from mine in that the process hollowing program injects ITSELF with the malicious memory. In this example also, the malicious program is never stored on or read off the disk. Instead, its raw bytes are pasted into the code of the injector program before compilation. This has the benefit of avoiding signature detection of the malicious file. Combined with obfuscation and/or packing, the malicious data may never see itself on the disk in a readable format and offer the best antivirus evasion. If having everything in the same file but still injecting ANOTHER process is important to you, feel free to combine these methods and replace the components of mine that read the data from the malicious file on disk into memory with theirs.
