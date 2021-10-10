@@ -3,7 +3,6 @@
 Process Hollowing Example
 
 */
-//#include "ntdll_undoc.h" A combination of windows.h and ntdll.h
 #include <windows.h>
 #include <fstream>
 #include <winuser.h>
