@@ -2,11 +2,6 @@
 
 Process Hollowing Example
 
-Thanks to https://medium.com/@jain.sm/process-hollowing-930b30452279
-
-Also, thanks to Athenian on Rohitab for pointing out in a Process Hollowing thread 
-that the Subsystem of the payload and target system must be the same!
-
 */
 //#include "ntdll_undoc.h" A combination of windows.h and ntdll.h
 #include <windows.h>
