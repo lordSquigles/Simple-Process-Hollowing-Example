@@ -156,6 +156,10 @@ void pHollow(LPCWSTR const& target, LPCWSTR const& replacement) {
 	//VirtualFree(GetCurrentProcess, NULL, MEM_RELEASE);
 }
 
-void main() {
+int main() {
+	// First parameter is the 32-bit target executable and second is the 32-bit replacement executable. 
 	pHollow(L"C:\\Program Files (x86)\\Internet Explorer\\iexplore.exe", L"C:\\Path\\To\\Test.exe");
+	// *Note: they must be of the same subsystem time. 
+	// 	Eg. A windows application cannot be injected with a console application
+	return 0;
 }
