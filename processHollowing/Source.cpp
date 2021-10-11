@@ -157,5 +157,5 @@ void pHollow(LPCWSTR const& target, LPCWSTR const& replacement) {
 }
 
 void main() {
-	pHollow(L"C:\\Program Files (x86)\\Internet Explorer\\iexplore.exe", L"C:\\Users\\Owner\\Desktop\\Test.exe");
+	pHollow(L"C:\\Program Files (x86)\\Internet Explorer\\iexplore.exe", L"C:\\Path\\To\\Test.exe");
 }
