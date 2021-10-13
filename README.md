@@ -1,5 +1,5 @@
 # Simple-Process-Hollowing-Example
-Process Hollowing is a malware evasion technique by which a process is run in the memory space of another. 
+Process Hollowing is an antivirus evasion technique by which a process is run in the memory space of another. 
 
 # Files:
 - [Process Hollowing code](https://github.com/LordSquigles/Simple-Process-Hollowing-Example/blob/main/processHollowing/Source.cpp)
